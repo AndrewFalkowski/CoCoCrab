@@ -111,34 +111,36 @@ class FractionalEncoder(nn.Module):
         # pe = self.register_buffer('pe', pe)
 
     def forward(self, x):
-        
-        x = x.clone().to(self.compute_device)
-        
+
+        # x = x.clone().to(self.compute_device)
+        rounded_frac = x
         if self.log10:
             x = 0.0025 * (torch.log2(x))**2
             x[x > 1] = 1
             # x = 1 - x  # for sinusoidal encoding at x=0
+            
         x[x < 1/self.resolution] = 1/self.resolution
-        rounded_frac = torch.round(x * self.resolution).to(dtype=torch.long,
-                                                      device=self.compute_device) - 1
+        
+        # rounded_frac = torch.round(x * self.resolution).to(dtype=torch.long,
+        #                                                    device=self.compute_device) - 1
 
         fraction = torch.linspace(0, self.d_model - 1,
                                   self.d_model,
-                                  requires_grad=False).view(1, self.d_model) \
+                                  requires_grad=True).view(1, self.d_model) \
                                   .to(self.compute_device)
 
-        pe = torch.zeros(rounded_frac.shape[0], 
-                         rounded_frac.shape[1], 
-                         self.d_model).to(self.compute_device)
-        
+        pe = torch.zeros(rounded_frac.shape[0],
+                          rounded_frac.shape[1],
+                          self.d_model).to(self.compute_device)
+
         for i in range(pe.shape[0]):
-            
+
             pe[i, :, 0::2] = (torch.sin(rounded_frac[i].view(1,-1) /torch.pow(
                 50,2 * fraction[:, 0::2].T / self.d_model))).T
 
             pe[i, :, 1::2] = (torch.cos(rounded_frac[i].view(1,-1) / torch.pow(
                 50, 2 * fraction[:, 1::2].T / self.d_model))).T
-
+            
         return pe
 
 
