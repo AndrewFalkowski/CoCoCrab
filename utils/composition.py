@@ -6,7 +6,6 @@ import tqdm
 import os
 dirpath = os.getcwd()
 
-
 class CompositionError(Exception):
     """Exception class for composition errors"""
     pass

@@ -53,8 +53,8 @@ class Model():
                                      n_elements=self.n_elements,
                                      inference=inference,
                                      verbose=self.verbose)
-        print(f'loading data with up to {data_loaders.n_elements:0.0f} '
-              f'elements in the formula')
+        # print(f'loading data with up to {data_loaders.n_elements:0.0f} '
+        #       f'elements in the formula')
 
         # update n_elements after loading dataset
         self.n_elements = data_loaders.n_elements

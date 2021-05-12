@@ -16,6 +16,8 @@ from torch import nn
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
 
+from tabulate import tabulate
+
 from crabnet.neokingcrab import CrabNet
 from crabnet.neomodel import Model
 # from utils.utils import EDMDataset
@@ -36,20 +38,20 @@ data_type_torch = torch.float32
 mat_prop = 'aflow__ael_bulk_modulus_vrh'
 data_dir = 'data/materials_data'
 mat_prop = 'aflow__ael_bulk_modulus_vrh'
-verbose = True
+verbose = False
 file_name = 'test.csv'
 
 data = rf'{data_dir}/{mat_prop}/{file_name}'
 
 bulk_name = 'aflow__ael_bulk_modulus_vrh'
 bulk_model = Model(CrabNet(compute_device=compute_device).to(compute_device),
-                  model_name=f'{bulk_name}', verbose=True)
+                  model_name=f'{bulk_name}', verbose=False)
 bulk_model.load_network(f'{bulk_name}.pth')
 bulk_model.load_data(data, batch_size=2**9, train=False)
 
 energy_name = 'decomposition_energy'
 energy_model = Model(CrabNet(compute_device=compute_device).to(compute_device),
-                  model_name=f'{energy_name}', verbose=True)
+                  model_name=f'{energy_name}', verbose=False)
 energy_model.load_network(f'{energy_name}.pth')
 energy_model.load_data(data, batch_size=2**9, train=False)
 
@@ -136,8 +138,8 @@ def ascension_plot(losses, bulk_mods, bunc, epoch):
 
   color = colors[0]
   ax2.set_ylabel('Bulk Modulus', color=color)  # we already handled the x-label with ax1
-  ax2.plot(bulk_mods, color=color, mec='k', alpha=0.35, marker='o')
-  # ax2.errorbar(epochs, bulk_mods, yerr=bunc, color=color, mec='k', alpha=0.35, marker='o')
+  # ax2.plot(bulk_mods, color=color, mec='k', alpha=0.35, marker='o')
+  ax2.errorbar(epochs, bulk_mods, yerr=bunc, color=color, mec='k', alpha=0.35, marker='o')
   ax2.tick_params(axis='y', labelcolor=color, direction='in',
                       length=7)
 
@@ -154,15 +156,44 @@ def ascension_plot(losses, bulk_mods, bunc, epoch):
   fig.tight_layout()  # otherwise the right y-label is slightly clipped
   plt.show()
 
+def elem_lookup(src):
+    try:
+        numpy_src = src.numpy().reshape(-1)
+    except:
+        numpy_src = src
+    all_symbols = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na',
+                   'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc',
+                   'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga',
+                   'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 'Nb',
+                   'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb',
+                   'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', 'Pm',
+                   'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu',
+                   'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl',
+                   'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', 'Pa',
+                   'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md',
+                   'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg',
+                   'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og']
+    
+    elem_names = [all_symbols[i] for i in numpy_src]
+    return elem_names
+
 #%%
 
-src = torch.tensor([14.0, 5.0, 31.0, 0]).view(1,-1)
-frac = torch.rand(4).view(1,-1)
-dummy_y = torch.tensor([100.00])
-dummy_form = ['Hg1Al2']
+src = torch.tensor([73, 6]).view(1,-1)
+num_elems = int(src.shape[1])
+frac = torch.rand(num_elems).view(1,-1)
+# dummy_y = torch.tensor([100.00])
+# dummy_form = ['Hg1Al2']
 
-epochs = 10
+
+epochs = 100
+
+delim ='-'
+print(f'\n\nOptimizing {delim.join(elem_lookup(src))} System in {epochs} Epochs... \n'.title())
+
 losses = []
+srcs = []
+fracs = []
 bulk_mods = []
 bulk_mod_uncs = []
 d_nrgs = []
@@ -189,16 +220,16 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 200, gamma=0.1, last_epoc
 criterion = nn.L1Loss()
 criterion = criterion.to(compute_device)
 
+
 for epoch in tqdm(range(epochs)):
     # print(f'frac: {frac}')
     soft_frac = masked_softmax(frac, frac_mask)
-    print(f'soft_frac: {soft_frac}')
     
     optimizer.zero_grad()
     bpred, buncertainty = bulk_model.predict(src, soft_frac)
     
     # factor = torch.tensor(bpred+epred).to(compute_device)
-    loss = criterion(bpred, torch.tensor([100000.0]).to(compute_device))
+    loss = criterion(bpred, torch.tensor([[100000.0]]).to(compute_device))
     # loss = loss + criterion(epred, torch.tensor([10000.0]).to(compute_device))
     
     loss.backward()
@@ -206,11 +237,33 @@ for epoch in tqdm(range(epochs)):
     scheduler.step()
 
     losses.append(loss.item())
+    srcs.append(src)
+    fracs.append(soft_frac)
     bulk_mods.append(bpred.item())
     bulk_mod_uncs.append(buncertainty.item())
         # d_nrgs.append(epred)
         # d__nrg_uncs.append(euncertainty)
-plt.plot(losses)
+
+srcs = [elem_lookup(item.detach().numpy().reshape(-1)) for item in srcs]
+fracs = [item.detach().numpy().reshape(-1) for item in fracs]
+
+optimized_frac_df = pd.DataFrame(
+    {'Elements': srcs,
+     'Fractions': fracs,
+     'P1': bulk_mods,
+     'P1 Uncertainty': bulk_mod_uncs,
+     'Loss': losses
+    })
+
+print('\n-----------------------------------------------------')
+print('\nOptimized Fractional Composition:\n'.title())
+
+# display(all_df.tail(1))
+print(optimized_frac_df.tail(1).iloc[:,0:2].to_markdown(index=False, tablefmt="simple"))
+print('\n')
+print(optimized_frac_df.tail(1).iloc[:,2:].to_markdown(index=False, tablefmt="rst"))
+
+# print(tabulate([['Alice', 24], ['Bob', 19]], headers=['Element', 'Fraction']))
 
 #%%
 ascension_plot(losses, bulk_mods, bulk_mod_uncs, epochs)
