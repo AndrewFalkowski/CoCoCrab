@@ -11,7 +11,7 @@ from sklearn.metrics import roc_auc_score
 from tabulate import tabulate
 
 from crabnet.neokingcrab import CrabNet
-from crabnet.neomodel import Model
+from crabnet.model import Model
 # from utils.utils import EDMDataset
 from utils.get_compute_device import get_compute_device
 from utils.ascension_utils import AscendedCrab
@@ -30,23 +30,24 @@ data_type_torch = torch.float32
 
 # indicate desired properties to optimize
 
+# prop0='aflow__agl_thermal_conductivity_300K'
 prop0='aflow__ael_bulk_modulus_vrh'
 
-prop1='Loss' # Leave as loss if only want to optimize on prop0
+prop1='decomposition_energy' # Leave as loss if only want to optimize on prop0
 
 # Input elements numbers in src vector to base composition on. 
 # Hydrogen is element 0
 
 src = torch.tensor([[71,
-                     72,
+                     5,
                      73,
-                     74]])
+                     12]])
 
 AscendModel = AscendedCrab(src, prop0, prop1)
 
 optimized_frac_df = AscendModel.ascend(epochs=100)
 
-property_ascension_plot(optimized_frac_df, prop1)
+property_ascension_plot(optimized_frac_df, prop0, prop1, errbar=True)
 
 
 # enter a source composition using the element numbers as they appear in 

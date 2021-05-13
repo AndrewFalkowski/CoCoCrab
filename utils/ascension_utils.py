@@ -1,46 +1,35 @@
 # ascension hub utils
-
+import os, sys
 import torch
 import torch.optim as optim
 from torch import nn
 from tqdm import tqdm
 import pandas as pd
 from crabnet.neokingcrab import CrabNet
-from crabnet.neomodel import Model
+from crabnet.model import Model
 from utils.get_compute_device import get_compute_device
 
 compute_device = get_compute_device(prefer_last=True)
 
 class AscendedCrab():
-    def __init__(self, src, prop0, prop1, saving=False, ensemble=False, compute_device=compute_device):
-        self.src = src
+    def __init__(self, src, prop0, prop1, saving=False, ensemble=False, 
+                 lr=0.025, compute_device=compute_device):
+        self.src = src.to(compute_device, dtype=torch.long, non_blocking=True)
         self.prop0 = prop0
         self.prop1 = prop1
         self.saving = saving
         self.ensemble=False
+        self.lr = lr
         self.compute_device = compute_device
+        self.model_0 = load_model(self.prop0)
+        if not self.prop1 == 'Loss':
+            self.model_1 = load_model(self.prop1)
 
 
     def ascend(self, epochs=100):
-        data = rf'data/materials_data/{self.prop0}/test.csv'
-        model_0_name = self.prop0
-        model_0 = Model(CrabNet(compute_device=compute_device).to(compute_device), 
-                        model_name=f'{model_0_name}', verbose=False)
-        model_0.load_network(f'{self.prop0}.pth')
-        model_0.load_data(data, batch_size=2**9, train=False)
-        
-        if not self.prop1 == 'Loss':
-            model_1_name = self.prop1
-            model_1 = Model(CrabNet(compute_device=compute_device).to(compute_device), 
-                        model_name=f'{model_1_name}', verbose=False)
-            model_1.load_network(f'{self.prop1}.pth')
-            model_1.load_data(data, batch_size=2**9, train=False)
-
-        num_elems = int(self.src.shape[1])
-        frac = torch.ones(num_elems).view(1,-1)
         
         delim = '-'
-        print(f'\n\nOptimizing {delim.join(elem_lookup(self.src))} System over {epochs} Epochs... \n'.title())
+        print(f'\n\nOptimizing {delim.join(elem_lookup(self.src))} System...\n'.title())
 
         losses = []
         srcs = []
@@ -52,21 +41,18 @@ class AscendedCrab():
             prop1_preds = []
             prop1_uncs = []
 
-        self.src = self.src.to(compute_device,
-                dtype=torch.long,
-                non_blocking=True)
-        
+
+        frac = torch.ones(int(self.src.shape[1])).view(1,-1) \
+                .to(compute_device,dtype=torch.float,non_blocking=True)\
+
+
         frac_mask = torch.where(self.src != 0, 1, 0)
         frac_mask = frac_mask.to(compute_device, 
                               dtype=torch.float,
                               non_blocking=True)
-        
-        frac = frac.to(compute_device,
-                dtype=torch.float,
-                non_blocking=True)
-        
-        optim_lr = 0.025
-        optimizer = optim.Adam([frac.requires_grad_()], lr=optim_lr)
+
+
+        optimizer = optim.Adam([frac.requires_grad_()], lr=self.lr)
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-20], gamma=0.1, last_epoch=-1, verbose=False)
         criterion = nn.L1Loss()
         criterion = criterion.to(compute_device)
@@ -76,19 +62,25 @@ class AscendedCrab():
             soft_frac = masked_softmax(frac, frac_mask)
             
             optimizer.zero_grad()
-            prop0_pred, prop0_unc = model_0.predict(self.src, soft_frac)
-            if not self.prop1 =='Loss':
-                prop1_pred, prop1_unc = model_1.predict(self.src, soft_frac)
-            
-            # factor = torch.tensor(bpred+epred).to(compute_device)
-            loss = criterion(prop0_pred, torch.tensor([[100000.0]]).to(compute_device))
-            # loss = loss + criterion(epred, torch.tensor([10000.0]).to(compute_device))
-            
-            loss.backward()
+            prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
+            loss0 = criterion(prop0_pred, torch.tensor([[100000.0]]).to(compute_device))
+            loss0.backward(retain_graph=True)
+            prop1_pred, prop1_unc = self.model_1.single_predict(self.src, soft_frac)
+            loss1 = criterion(prop1_pred, torch.tensor([[100000.0]]).to(compute_device))
+            loss1.backward()
+
+                # loss1 = criterion(prop1_pred, torch.tensor([[100000.0]]).to(compute_device))
+
+            # if not self.prop1 =='Loss':
+            #     loss = loss0 + loss1
+            # else:
+            #     loss = criterion(prop0_pred, torch.tensor([[100000.0]]).to(compute_device))
+
+            # loss.backward()
             optimizer.step()
             scheduler.step()
         
-            losses.append(loss.item())
+            losses.append(loss0.item()+loss1.item())
             srcs.append(self.src)
             fracs.append(soft_frac)
             prop0_preds.append(prop0_pred.item())
@@ -99,23 +91,54 @@ class AscendedCrab():
                 
         srcs = [elem_lookup(item.detach().numpy().reshape(-1)) for item in srcs]
         fracs = [item.detach().numpy().reshape(-1) for item in fracs]
-        
+
         optimized_frac_df = pd.DataFrame(
             {'Elements': srcs,
              'Fractions': fracs,
-               'Prop 0': prop0_preds,
-               'Prop 0 UNC': prop0_uncs,
+               f'{self.prop0}': prop0_preds,
+               f'{self.prop0} UNC': prop0_uncs,
               'Loss': losses
             })
-        
+
+        if not self.prop1 == 'Loss':
+            optimized_frac_df = pd.DataFrame(
+                {'Elements': srcs,
+                 'Fractions': fracs,
+                   f'{self.prop0}': prop0_preds,
+                   f'{self.prop0} UNC': prop0_uncs,
+                   f'{self.prop1}': prop1_preds,
+                   f'{self.prop1} UNC': prop1_uncs,
+                  'Loss': losses
+                })
+            
+
         print('\n-----------------------------------------------------')
         print('\nOptimized Fractional Composition:\n'.title())
         print(optimized_frac_df.tail(1).iloc[:,0:2].to_markdown(index=False, tablefmt="simple"))
         print('\n')
-        print(optimized_frac_df.tail(1).iloc[:,2:].to_markdown(index=False, tablefmt="rst"))
-
+        print(optimized_frac_df.tail(1).iloc[:,2:4].to_markdown(index=False, tablefmt="rst"))
+        if not self.prop1 == 'Loss':
+            print(optimized_frac_df.tail(1).iloc[:,4:].to_markdown(index=False, tablefmt="rst"))
         return optimized_frac_df
 
+
+def load_model(prop):
+    try:
+        data = rf'data/materials_data/{prop}/test.csv'
+        model_name = prop
+        model = Model(CrabNet(compute_device=compute_device).to(compute_device), 
+                        model_name=f'{model_name}', verbose=False)
+        model.load_network(f'{prop}.pth')
+        model.load_data(data, batch_size=2**9, train=False)
+    except:
+        model_list = os.listdir('models/trained_models/')
+        print('\nAn error occurred while trying to load the model...\n')
+        print('It is likely that you are trying to load a property model that is not available.')
+        print(f'\nAvailable models include:')
+        for model in model_list:
+            print('  - ' + model[:-4])
+        sys.exit()
+    return model
 
 
 def masked_softmax(vec, mask, dim=1, epsilon=1e-5):
@@ -147,5 +170,5 @@ def elem_lookup(src):
     return elem_names
 
 #%%
-if __name__ == '__main__':
-    pass
+# if __name__ == '__main__':
+#     pass
