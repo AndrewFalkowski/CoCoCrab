@@ -20,8 +20,9 @@ from tabulate import tabulate
 
 from crabnet.neokingcrab import CrabNet
 from crabnet.neomodel import Model
-# from utils.utils import EDMDataset
 from utils.get_compute_device import get_compute_device
+from utils.ascension_utils import *
+from utils.ascension_plots import *
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
@@ -57,133 +58,9 @@ energy_model.load_data(data, batch_size=2**9, train=False)
 
 #%%
 
-def masked_softmax(vec, mask, dim=1, epsilon=1e-5):
-    exps = torch.exp(vec)
-    masked_exps = exps * mask
-    masked_sums = masked_exps.sum(dim, keepdim=True) + epsilon
-    return (masked_exps/masked_sums)
-
-class EDMDataset(Dataset):
-    """
-    Get X and y from EDM dataset.
-    """
-
-    def __init__(self, dataset, n_comp):
-        self.data = dataset
-        self.n_comp = n_comp
-
-        self.X = self.data[0]
-        self.y = self.data[1]
-        # self.formula = torch.tensor(self.data[2])
-        self.formula = torch.tensor([0.0])
-
-        self.shape = [(self.X.shape), (self.y.shape), (self.formula.shape)]
-
-    def __str__(self):
-        string = f'EDMDataset with X.shape {self.X.shape}'
-        return string
-
-    def __len__(self):
-        return self.X.shape[0]
-
-    def __getitem__(self, idx):
-        X = self.X[idx, :, :]
-        y = self.y[idx]
-        formula = self.formula[idx]
-
-        X = torch.as_tensor(X, dtype=torch.float32)
-        y = torch.as_tensor(y, dtype=torch.float32)
-        # X = torch.as_tensor(X, dtype=torch.float)
-        # y = torch.as_tensor(y, dtype=torch.float)
-
-        return (X, y, formula)
-
-def ascension_loader(src, frac, batch_size=2**9, pin_memory=False):
-    EDM = torch.cat((src, frac), 0).view(1, -1, 1)
-    n_elements = len(src)
-    ascension_data = (EDM, dummy_y, dummy_form)
-    ascension_dataset = EDMDataset(ascension_data, n_elements)
-    data_loader = DataLoader(ascension_dataset,
-                             batch_size = batch_size,
-                             pin_memory = pin_memory)
-    return data_loader
-
-def ascension_plot(losses, bulk_mods, bunc, epoch):
-  
-  colors = sns.color_palette('mako', 2)
-  fig, ax1 = plt.subplots()
-  epochs = np.arange(epoch)
-
-  color = colors[1]
-  ax1.set_xlabel('Epoch')
-  ax1.set_ylabel('Loss', color=color)
-  ax1.plot(losses, color=color, mec='k', alpha=0.35, marker='s')
-  ax1.tick_params(axis='y', labelcolor=color)
-  ax1.tick_params(direction='in',
-                      length=7,top=True, right=True)
-
-  minor_locator_x = AutoMinorLocator(2)
-  minor_locator_y = AutoMinorLocator(2)
-  ax1.get_xaxis().set_minor_locator(minor_locator_x)
-  ax1.get_yaxis().set_minor_locator(minor_locator_y)
-  plt.tick_params(which='minor',
-                  direction='in', labelcolor=color,
-                  length=4,
-                  right=True,
-                  top=True)
-
-
-
-  ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-
-  color = colors[0]
-  ax2.set_ylabel('Bulk Modulus', color=color)  # we already handled the x-label with ax1
-  # ax2.plot(bulk_mods, color=color, mec='k', alpha=0.35, marker='o')
-  ax2.errorbar(epochs, bulk_mods, yerr=bunc, color=color, mec='k', alpha=0.35, marker='o')
-  ax2.tick_params(axis='y', labelcolor=color, direction='in',
-                      length=7)
-
-  minor_locator_x = AutoMinorLocator(2)
-  minor_locator_y = AutoMinorLocator(2)
-  ax2.get_xaxis().set_minor_locator(minor_locator_x)
-  ax2.get_yaxis().set_minor_locator(minor_locator_y)
-  plt.tick_params(which='minor',
-                  direction='in', labelcolor=color,
-                  length=4,
-                  right=True,
-                  top=True)
-
-  fig.tight_layout()  # otherwise the right y-label is slightly clipped
-  plt.show()
-
-def elem_lookup(src):
-    try:
-        numpy_src = src.numpy().reshape(-1)
-    except:
-        numpy_src = src
-    all_symbols = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na',
-                   'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc',
-                   'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga',
-                   'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 'Nb',
-                   'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb',
-                   'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', 'Pm',
-                   'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu',
-                   'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl',
-                   'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', 'Pa',
-                   'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md',
-                   'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg',
-                   'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og']
-    
-    elem_names = [all_symbols[i] for i in numpy_src]
-    return elem_names
-
-#%%
-
-src = torch.tensor([73, 6]).view(1,-1)
+src = torch.tensor([14, 23, 31]).view(1,-1)
 num_elems = int(src.shape[1])
-frac = torch.rand(num_elems).view(1,-1)
-# dummy_y = torch.tensor([100.00])
-# dummy_form = ['Hg1Al2']
+frac = torch.ones(num_elems).view(1,-1)
 
 
 epochs = 100

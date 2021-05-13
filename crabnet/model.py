@@ -53,8 +53,8 @@ class Model():
                                      n_elements=self.n_elements,
                                      inference=inference,
                                      verbose=self.verbose)
-        print(f'loading data with up to {data_loaders.n_elements:0.0f} '
-              f'elements in the formula')
+        # print(f'loading data with up to {data_loaders.n_elements:0.0f} '
+        #       f'elements in the formula')
 
         # update n_elements after loading dataset
         self.n_elements = data_loaders.n_elements
@@ -271,8 +271,7 @@ class Model():
 
         if not (self.optimizer.discard_count >= self.discard_n):
             self.optimizer.swap_swa_sgd()
-
-
+    
     def predict(self, loader):
         len_dataset = len(loader.dataset)
         n_atoms = int(len(loader.dataset[0][0])/2)
@@ -302,19 +301,63 @@ class Model():
                 prediction = self.scaler.unscale(prediction)
                 if self.classification:
                     prediction = torch.sigmoid(prediction)
-
+    
                 data_loc = slice(i*self.batch_size,
                                  i*self.batch_size+len(y),
                                  1)
-
+    
                 atoms[data_loc, :] = src.cpu().numpy()
                 fractions[data_loc, :] = frac.cpu().numpy()
                 act[data_loc] = y.view(-1).cpu().numpy()
                 pred[data_loc] = prediction.view(-1).cpu().detach().numpy()
                 uncert[data_loc] = uncertainty.view(-1).cpu().detach().numpy()
                 formulae[data_loc] = formula
-
+    
         return (act, pred, formulae, uncert)
+
+
+    def single_predict(self, src, frac):
+        # len_dataset = len(loader.dataset)
+        # n_atoms = int(len(loader.dataset[0][0])/2)
+        # act = np.zeros(len_dataset)
+        # pred = np.zeros(len_dataset)
+        # uncert = np.zeros(len_dataset)
+        # formulae = np.empty(len_dataset, dtype=list)
+        # atoms = np.empty((len_dataset, n_atoms))
+        # fractions = np.empty((len_dataset, n_atoms))
+        self.model.eval()
+        # with torch.no_grad():
+            # for i, data in enumerate(loader):
+            #     X, y, formula = data
+            #     src, frac = X.squeeze(-1).chunk(2, dim=1)
+            #     src = src.to(self.compute_device,
+            #                  dtype=torch.long,
+            #                  non_blocking=True)
+            #     frac = frac.to(self.compute_device,
+            #                    dtype=data_type_torch,
+            #                    non_blocking=True)
+            #     y = y.to(self.compute_device,
+            #              dtype=data_type_torch,
+            #              non_blocking=True)
+        output = self.model.forward(src, frac)
+        prediction, uncertainty = output.chunk(2, dim=-1)
+        uncertainty = torch.exp(uncertainty) * self.scaler.std
+        prediction = self.scaler.unscale(prediction)
+        if self.classification:
+            prediction = torch.sigmoid(prediction)
+
+                # data_loc = slice(i*self.batch_size,
+                #                  i*self.batch_size+len(y),
+                #                  1)
+
+                # atoms[data_loc, :] = src.cpu().numpy()
+                # fractions[data_loc, :] = frac.cpu().numpy()
+                # act[data_loc] = y.view(-1).cpu().numpy()
+                # pred[data_loc] = prediction.view(-1).cpu().detach().numpy()
+                # uncert[data_loc] = uncertainty.view(-1).cpu().detach().numpy()
+                # formulae[data_loc] = formula
+
+        return (prediction, uncertainty)
 
 
     def save_network(self, model_name=None):
