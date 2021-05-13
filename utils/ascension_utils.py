@@ -31,13 +31,14 @@ class AscendedCrab():
         delim = '-'
         print(f'\n\nOptimizing {delim.join(elem_lookup(self.src))} System...\n'.title())
 
-        losses = []
+        loss0s = []
         srcs = []
         fracs = []
 
         prop0_preds = []
         prop0_uncs = []
         if not self.prop1 == 'Loss':
+            loss1s = []
             prop1_preds = []
             prop1_uncs = []
 
@@ -58,67 +59,66 @@ class AscendedCrab():
         criterion = criterion.to(compute_device)
         
         for epoch in tqdm(range(epochs)):
-            # print(f'frac: {frac}')
+
             soft_frac = masked_softmax(frac, frac_mask)
             
             optimizer.zero_grad()
-            prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
-            loss0 = criterion(prop0_pred, torch.tensor([[100000.0]]).to(compute_device))
-            loss0.backward(retain_graph=True)
-            prop1_pred, prop1_unc = self.model_1.single_predict(self.src, soft_frac)
-            loss1 = criterion(prop1_pred, torch.tensor([[100000.0]]).to(compute_device))
-            loss1.backward()
+            if not self.prop1 == 'Loss':
+                prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
+                loss0 = criterion(prop0_pred, torch.tensor([[100000.0]]).to(compute_device))
+                loss0.backward(retain_graph=True)
+                prop1_pred, prop1_unc = self.model_1.single_predict(self.src, soft_frac)
+                loss1 = criterion(prop1_pred, torch.tensor([[-100000.0]]).to(compute_device))
+                loss1.backward()
+            else:
+                prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
+                loss0 = criterion(prop0_pred, torch.tensor([[100000.0]]).to(compute_device))
+                loss0.backward()
 
-                # loss1 = criterion(prop1_pred, torch.tensor([[100000.0]]).to(compute_device))
-
-            # if not self.prop1 =='Loss':
-            #     loss = loss0 + loss1
-            # else:
-            #     loss = criterion(prop0_pred, torch.tensor([[100000.0]]).to(compute_device))
-
-            # loss.backward()
             optimizer.step()
             scheduler.step()
         
-            losses.append(loss0.item()+loss1.item())
+            loss0s.append(loss0.item())
             srcs.append(self.src)
             fracs.append(soft_frac)
             prop0_preds.append(prop0_pred.item())
             prop0_uncs.append(prop0_unc.item())
             if not self.prop1 == 'Loss':
+                loss1s.append(loss1.item())
                 prop1_preds.append(prop1_pred.item())
                 prop1_uncs.append(prop1_unc.item())
                 
         srcs = [elem_lookup(item.detach().numpy().reshape(-1)) for item in srcs]
         fracs = [item.detach().numpy().reshape(-1) for item in fracs]
 
-        optimized_frac_df = pd.DataFrame(
-            {'Elements': srcs,
-             'Fractions': fracs,
-               f'{self.prop0}': prop0_preds,
-               f'{self.prop0} UNC': prop0_uncs,
-              'Loss': losses
-            })
-
-        if not self.prop1 == 'Loss':
+        if self.prop1 == 'Loss':
             optimized_frac_df = pd.DataFrame(
                 {'Elements': srcs,
                  'Fractions': fracs,
                    f'{self.prop0}': prop0_preds,
                    f'{self.prop0} UNC': prop0_uncs,
+                  'Loss': loss0s
+                })
+        else: 
+            optimized_frac_df = pd.DataFrame(
+                {'Elements': srcs,
+                 'Fractions': fracs,
+                   f'{self.prop0}': prop0_preds,
+                   f'{self.prop0} UNC': prop0_uncs,
+                   f'{self.prop0[:5]} Loss': loss0s,
                    f'{self.prop1}': prop1_preds,
                    f'{self.prop1} UNC': prop1_uncs,
-                  'Loss': losses
+                  f'{self.prop1[:5]} Loss': loss1s
                 })
-            
+
 
         print('\n-----------------------------------------------------')
         print('\nOptimized Fractional Composition:\n'.title())
         print(optimized_frac_df.tail(1).iloc[:,0:2].to_markdown(index=False, tablefmt="simple"))
         print('\n')
-        print(optimized_frac_df.tail(1).iloc[:,2:4].to_markdown(index=False, tablefmt="rst"))
+        print(optimized_frac_df.tail(1).iloc[:,2:5].to_markdown(index=False, tablefmt="rst"))
         if not self.prop1 == 'Loss':
-            print(optimized_frac_df.tail(1).iloc[:,4:].to_markdown(index=False, tablefmt="rst"))
+            print(optimized_frac_df.tail(1).iloc[:,5:].to_markdown(index=False, tablefmt="rst"))
         return optimized_frac_df
 
 

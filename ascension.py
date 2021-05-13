@@ -40,7 +40,7 @@ prop1='decomposition_energy' # Leave as loss if only want to optimize on prop0
 
 src = torch.tensor([[71,
                      5,
-                     73,
+                     23,
                      12]])
 
 AscendModel = AscendedCrab(src, prop0, prop1)
