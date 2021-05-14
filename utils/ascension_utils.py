@@ -12,7 +12,7 @@ from utils.get_compute_device import get_compute_device
 compute_device = get_compute_device(prefer_last=True)
 
 class AscendedCrab():
-    def __init__(self, src, prop0, prop1, saving=False, ensemble=False, 
+    def __init__(self, src, prop0, prop1, saving=False, ensemble=False,
                  lr=0.025, compute_device=compute_device):
         self.src = src.to(compute_device, dtype=torch.long, non_blocking=True)
         self.prop0 = prop0
@@ -27,7 +27,7 @@ class AscendedCrab():
 
 
     def ascend(self, epochs=100):
-        
+
         delim = '-'
         print(f'\n\nOptimizing {delim.join(elem_lookup(self.src))} System...\n'.title())
 
@@ -48,7 +48,7 @@ class AscendedCrab():
 
 
         frac_mask = torch.where(self.src != 0, 1, 0)
-        frac_mask = frac_mask.to(compute_device, 
+        frac_mask = frac_mask.to(compute_device,
                               dtype=torch.float,
                               non_blocking=True)
 
@@ -57,11 +57,11 @@ class AscendedCrab():
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-20], gamma=0.1, last_epoch=-1, verbose=False)
         criterion = nn.L1Loss()
         criterion = criterion.to(compute_device)
-        
+
         for epoch in tqdm(range(epochs)):
 
             soft_frac = masked_softmax(frac, frac_mask)
-            
+
             optimizer.zero_grad()
             if not self.prop1 == 'Loss':
                 prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
@@ -77,7 +77,7 @@ class AscendedCrab():
 
             optimizer.step()
             scheduler.step()
-        
+
             loss0s.append(loss0.item())
             srcs.append(self.src)
             fracs.append(soft_frac)
@@ -87,7 +87,7 @@ class AscendedCrab():
                 loss1s.append(loss1.item())
                 prop1_preds.append(prop1_pred.item())
                 prop1_uncs.append(prop1_unc.item())
-                
+
         srcs = [elem_lookup(item.detach().numpy().reshape(-1)) for item in srcs]
         fracs = [item.detach().numpy().reshape(-1) for item in fracs]
 
@@ -99,7 +99,7 @@ class AscendedCrab():
                    f'{self.prop0} UNC': prop0_uncs,
                   'Loss': loss0s
                 })
-        else: 
+        else:
             optimized_frac_df = pd.DataFrame(
                 {'Elements': srcs,
                  'Fractions': fracs,
@@ -126,7 +126,7 @@ def load_model(prop):
     try:
         data = rf'data/materials_data/{prop}/test.csv'
         model_name = prop
-        model = Model(CrabNet(compute_device=compute_device).to(compute_device), 
+        model = Model(CrabNet(compute_device=compute_device).to(compute_device),
                         model_name=f'{model_name}', verbose=False)
         model.load_network(f'{prop}.pth')
         model.load_data(data, batch_size=2**9, train=False)
@@ -165,7 +165,7 @@ def elem_lookup(src):
                    'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md',
                    'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg',
                    'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og']
-    
+
     elem_names = [all_symbols[i] for i in numpy_src]
     return elem_names
 

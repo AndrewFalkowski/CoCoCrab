@@ -271,7 +271,7 @@ class Model():
 
         if not (self.optimizer.discard_count >= self.discard_n):
             self.optimizer.swap_swa_sgd()
-    
+
     def predict(self, loader):
         len_dataset = len(loader.dataset)
         n_atoms = int(len(loader.dataset[0][0])/2)
@@ -301,18 +301,18 @@ class Model():
                 prediction = self.scaler.unscale(prediction)
                 if self.classification:
                     prediction = torch.sigmoid(prediction)
-    
+
                 data_loc = slice(i*self.batch_size,
                                  i*self.batch_size+len(y),
                                  1)
-    
+
                 atoms[data_loc, :] = src.cpu().numpy()
                 fractions[data_loc, :] = frac.cpu().numpy()
                 act[data_loc] = y.view(-1).cpu().numpy()
                 pred[data_loc] = prediction.view(-1).cpu().detach().numpy()
                 uncert[data_loc] = uncertainty.view(-1).cpu().detach().numpy()
                 formulae[data_loc] = formula
-    
+
         return (act, pred, formulae, uncert)
 
 
@@ -343,8 +343,8 @@ class Model():
         prediction, uncertainty = output.chunk(2, dim=-1)
         uncertainty = torch.exp(uncertainty) * self.scaler.std
         prediction = self.scaler.unscale(prediction)
-        if self.classification:
-            prediction = torch.sigmoid(prediction)
+        # if self.classification:
+        #     prediction = torch.sigmoid(prediction)
 
                 # data_loc = slice(i*self.batch_size,
                 #                  i*self.batch_size+len(y),
