@@ -340,9 +340,9 @@ class Model():
             #              dtype=data_type_torch,
             #              non_blocking=True)
         output = self.model.forward(src, frac)
-        prediction, uncertainty = output.chunk(2, dim=-1)
-        uncertainty = torch.exp(uncertainty) * self.scaler.std
-        prediction = self.scaler.unscale(prediction)
+        scaled_prediction, scaled_uncertainty = output.chunk(2, dim=-1)
+        uncertainty = torch.exp(scaled_uncertainty) * self.scaler.std
+        prediction = self.scaler.unscale(scaled_prediction)
         # if self.classification:
         #     prediction = torch.sigmoid(prediction)
 
@@ -357,7 +357,7 @@ class Model():
                 # uncert[data_loc] = uncertainty.view(-1).cpu().detach().numpy()
                 # formulae[data_loc] = formula
 
-        return (prediction, uncertainty)
+        return (scaled_prediction, scaled_uncertainty, prediction, uncertainty)
 
 
     def save_network(self, model_name=None):

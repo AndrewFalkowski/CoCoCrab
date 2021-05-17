@@ -12,11 +12,12 @@ from utils.get_compute_device import get_compute_device
 compute_device = get_compute_device(prefer_last=True)
 
 class AscendedCrab():
-    def __init__(self, src, prop0, prop1, saving=False, ensemble=False,
+    def __init__(self, src, prop0, prop1, alpha=0.5, saving=False, ensemble=False,
                  lr=0.025, compute_device=compute_device):
         self.src = src.to(compute_device, dtype=torch.long, non_blocking=True)
         self.prop0 = prop0
         self.prop1 = prop1
+        self.alpha = alpha
         self.saving = saving
         self.ensemble=False
         self.lr = lr
@@ -43,7 +44,7 @@ class AscendedCrab():
             prop1_uncs = []
 
 
-        frac = torch.ones(int(self.src.shape[1])).view(1,-1) \
+        frac = torch.rand(int(self.src.shape[1])).view(1,-1) \
                 .to(compute_device,dtype=torch.float,non_blocking=True)\
 
 
@@ -54,39 +55,50 @@ class AscendedCrab():
 
 
         optimizer = optim.Adam([frac.requires_grad_()], lr=self.lr)
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-20], gamma=0.1, last_epoch=-1, verbose=False)
+        # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-20], gamma=0.1, last_epoch=-1, verbose=False)
         criterion = nn.L1Loss()
+        # criterion = nn.MSELoss()
         criterion = criterion.to(compute_device)
-
+        torch.autograd.set_detect_anomaly(True)
         for epoch in tqdm(range(epochs)):
 
             soft_frac = masked_softmax(frac, frac_mask)
 
             optimizer.zero_grad()
             if not self.prop1 == 'Loss':
-                prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
-                loss0 = criterion(prop0_pred, torch.tensor([[100000.0]]).to(compute_device))
-                loss0.backward(retain_graph=True)
-                prop1_pred, prop1_unc = self.model_1.single_predict(self.src, soft_frac)
-                loss1 = criterion(prop1_pred, torch.tensor([[-100000.0]]).to(compute_device))
-                loss1.backward()
+                # prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
+                # if epoch == 0:
+                #     init_0 = prop0_pred.clone().detach()
+                # loss0 = criterion((prop0_pred/init_0), torch.tensor([[100000.0]]).to(compute_device))
+                # prop1_pred, prop1_unc = self.model_1.single_predict(self.src, soft_frac)
+                # if epoch == 0:
+                #     init_1 = prop1_pred.clone().detach()
+                # loss1 = criterion((init_1/prop1_pred), torch.tensor([[100000.0]]).to(compute_device))
+
+                scaled_p0, _, prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
+                loss0 = criterion(scaled_p0, torch.tensor([[100000.0]]).to(compute_device))
+                scaled_p1, _, prop1_pred, prop1_unc = self.model_1.single_predict(self.src, soft_frac)
+                loss1 = criterion(scaled_p1, torch.tensor([[-100000.0]]).to(compute_device))
+
+                loss = (self.alpha * loss0) + ((1-self.alpha)*loss1)
+                loss.backward()
+
+                loss1s.append(loss1.item())
+                prop1_preds.append(prop1_pred.item())
+                prop1_uncs.append(prop1_unc.item())
             else:
                 prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
                 loss0 = criterion(prop0_pred, torch.tensor([[100000.0]]).to(compute_device))
                 loss0.backward()
 
             optimizer.step()
-            scheduler.step()
+            # scheduler.step()
 
             loss0s.append(loss0.item())
             srcs.append(self.src)
             fracs.append(soft_frac)
             prop0_preds.append(prop0_pred.item())
             prop0_uncs.append(prop0_unc.item())
-            if not self.prop1 == 'Loss':
-                loss1s.append(loss1.item())
-                prop1_preds.append(prop1_pred.item())
-                prop1_uncs.append(prop1_unc.item())
 
         srcs = [elem_lookup(item.detach().numpy().reshape(-1)) for item in srcs]
         fracs = [item.detach().numpy().reshape(-1) for item in fracs]
@@ -105,11 +117,10 @@ class AscendedCrab():
                  'Fractions': fracs,
                    f'{self.prop0}': prop0_preds,
                    f'{self.prop0} UNC': prop0_uncs,
-                   f'{self.prop0[:5]} Loss': loss0s,
+                   f'Prop0 Loss': loss0s,
                    f'{self.prop1}': prop1_preds,
                    f'{self.prop1} UNC': prop1_uncs,
-                  f'{self.prop1[:5]} Loss': loss1s
-                })
+                  f'Prop1 Loss': loss1s})
 
 
         print('\n-----------------------------------------------------')

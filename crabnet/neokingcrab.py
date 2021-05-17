@@ -112,8 +112,8 @@ class FractionalEncoder(nn.Module):
 
     def forward(self, x):
 
-        # x = x.clone().to(self.compute_device)
-        rounded_frac = x
+        rounded_frac = x.clone().to(self.compute_device)
+        # rounded_frac = x
         if self.log10:
             x = 0.0025 * (torch.log2(x))**2
             x[x > 1] = 1
@@ -121,9 +121,6 @@ class FractionalEncoder(nn.Module):
             
         x[x < 1/self.resolution] = 1/self.resolution
         
-        # rounded_frac = torch.round(x * self.resolution).to(dtype=torch.long,
-        #                                                    device=self.compute_device) - 1
-
         fraction = torch.linspace(0, self.d_model - 1,
                                   self.d_model,
                                   requires_grad=True).view(1, self.d_model) \
