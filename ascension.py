@@ -28,34 +28,38 @@ np.random.seed(RNG_SEED)
 data_type_torch = torch.float32
 #%%
 
-# indicate desired properties to optimize
+# indicate desired properties to optimize from list of trained models
 
-# prop0='aflow__agl_thermal_conductivity_300K'
 prop0='aflow__ael_bulk_modulus_vrh'
 
-prop1='aflow__agl_thermal_conductivity_300K' # Leave as loss if only want to optimize on prop0
+prop1='aflow__agl_thermal_conductivity_300K' # Leave as 'Loss' if only want to optimize prop0
 
 # Input elements numbers in src vector to base composition on.
-# Hydrogen is element 0
+# Hydrogen is considered element 0 in this representation
 
 src = torch.tensor([[19,
                      13,
+                     12,
                      7]])
 
-AscendModel = AscendedCrab(src, prop0, prop1)
+alpha = 0.5 # weight parameter for optimization, applies directly to prop0
+
+AscendModel = AscendedCrab(src, prop0, prop1, alpha, lr=0.025)
 
 optimized_frac_df = AscendModel.ascend(epochs=100)
 
 property_ascension_plot(optimized_frac_df, prop0, prop1, errbar=True)
 
+element_ascension_plot(optimized_frac_df)
+
 #
 # dummy_src = src
-# dummy_frac = torch.tensor([[0.00777465, 0.46796364, 0.52426136]])
-#
+# dummy_frac = torch.tensor([[0.85224, 0.0497999, 0.04282987, 0.05512916]])
+
 # model_0 = load_model(prop0)
 # model_1 = load_model(prop1)
-# scale_pred_0, _, prop0_pred, prop0_unc = model_0.single_predict(dummy_src, dummy_frac)
-# scale_pred_1, __, prop1_pred, prop1_unc = model_1.single_predict(dummy_src, dummy_frac)
+# sp0, _, prop0_pred, prop0_unc = model_0.single_predict(dummy_src, dummy_frac)
+psp1, _, rop1_pred, prop1_unc = model_1.single_predict(dummy_src, dummy_frac)
 
 
 # enter a source composition using the element numbers as they appear in
