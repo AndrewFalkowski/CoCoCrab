@@ -12,11 +12,15 @@ from utils.get_compute_device import get_compute_device
 compute_device = get_compute_device(prefer_last=True)
 
 class AscendedCrab():
-    def __init__(self, src, prop0, prop1, alpha=0.5, saving=False, ensemble=False,
+    def __init__(self, src, prop0, prop1, prop0_target, prop1_target,
+                 alpha=0.5, saving=False, ensemble=False,
                  lr=0.025, compute_device=compute_device):
+        
         self.src = src.to(compute_device, dtype=torch.long, non_blocking=True)
         self.prop0 = prop0
+        self.prop0_target = 1 if prop0_target == 'max' else -1
         self.prop1 = prop1
+        self.prop1_target = 1 if prop1_target == 'max' else -1
         self.alpha = alpha
         self.saving = saving
         self.ensemble=False
@@ -55,7 +59,7 @@ class AscendedCrab():
 
 
         optimizer = optim.Adam([frac.requires_grad_()], lr=self.lr)
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-10], gamma=0.1, last_epoch=-1, verbose=False)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-5], gamma=0.1, last_epoch=-1, verbose=False)
         criterion = nn.L1Loss()
         # criterion = nn.MSELoss()
         criterion = criterion.to(compute_device)
@@ -76,9 +80,9 @@ class AscendedCrab():
                 # loss1 = criterion((init_1/prop1_pred), torch.tensor([[100000.0]]).to(compute_device))
 
                 scaled_p0, _, prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
-                loss0 = criterion(scaled_p0, torch.tensor([[100000.0]]).to(compute_device))
+                loss0 = criterion(scaled_p0, torch.tensor([[self.prop0_target*100000.0]]).to(compute_device))
                 scaled_p1, _, prop1_pred, prop1_unc = self.model_1.single_predict(self.src, soft_frac)
-                loss1 = criterion(scaled_p1, torch.tensor([[-100000.0]]).to(compute_device))
+                loss1 = criterion(scaled_p1, torch.tensor([[self.prop1_target*100000.0]]).to(compute_device))
 
                 # loss = (self.alpha * loss0) + ((1-self.alpha)*loss1)
                 loss = loss0 + loss1
@@ -88,8 +92,8 @@ class AscendedCrab():
                 prop1_preds.append(prop1_pred.item())
                 prop1_uncs.append(prop1_unc.item())
             else:
-                prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
-                loss0 = criterion(prop0_pred, torch.tensor([[100000.0]]).to(compute_device))
+                scaled_p0, _, prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
+                loss0 = criterion(scaled_p0, torch.tensor([[self.prop0_target*100000.0]]).to(compute_device))
                 loss0.backward()
 
             optimizer.step()

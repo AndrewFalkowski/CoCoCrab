@@ -26,13 +26,16 @@ RNG_SEED = 42
 torch.manual_seed(RNG_SEED)
 np.random.seed(RNG_SEED)
 data_type_torch = torch.float32
+
 #%%
 
 # indicate the desired properties to optimize
 # listed properties should correspond names of trained models in directories
 
 prop0='aflow__ael_bulk_modulus_vrh'
-prop1='aflow__agl_thermal_conductivity_300K' # Leave as 'Loss' for single optim
+prop0_target = 'max' # whether to maximize or minimize this property
+prop1='aflow__agl_thermal_conductivity_300K' # Set to 'Loss' for single optim
+prop1_target = 'min'
 
 # The src tensor contains the atomic numbers of the elements whose fractions 
 # will be optimized. Hydrogen is considered element 0 in this representation.
@@ -44,8 +47,11 @@ src = torch.tensor([[19,
                      12,
                      7]])
 
+
+
 # AscendModel initializes the models and variables for gradient ascent
-AscendModel = AscendedCrab(src, prop0, prop1, alpha=0.5, lr=0.1)
+AscendModel = AscendedCrab(src, prop0, prop1, prop0_target, prop1_target, 
+                           alpha=0.5, lr=0.1)
 
 # The ascend model conducts the gradient ascent and returns a df with results
 optimized_frac_df = AscendModel.ascend(epochs=100)
@@ -59,4 +65,3 @@ element_ascension_plot(optimized_frac_df, save_dir='figures')
 
 # save gradient ascent results to csv file
 save_results(optimized_frac_df, save_dir='results')
-
