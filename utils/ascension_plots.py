@@ -8,7 +8,7 @@ import matplotlib.cm as cm
 
 from matplotlib.ticker import AutoMinorLocator
 from matplotlib.colors import Normalize
-
+from utils.ascension_utils import elem_lookup
 from .composition import _element_composition
 from scipy import stats
 import seaborn as sns
@@ -16,8 +16,9 @@ plt.rcParams.update({'font.size': 14})
 
 #%%
 
-def property_ascension_plot(optim_frac_df, prop0, prop1, errbar=False, save=False):
-  
+def property_ascension_plot(optim_frac_df, prop0, prop1, errbar=False, 
+                            save_dir=None):
+
     colors = sns.color_palette('mako', 2)
     fig, ax1 = plt.subplots()
     epochs = optim_frac_df.index.values
@@ -46,9 +47,7 @@ def property_ascension_plot(optim_frac_df, prop0, prop1, errbar=False, save=Fals
                     length=4,
                     right=True,
                     top=True)
-      
-      
-      
+
     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
       
     color = colors[0]
@@ -60,8 +59,8 @@ def property_ascension_plot(optim_frac_df, prop0, prop1, errbar=False, save=Fals
     else:
         ax2.plot(optim_frac_df[f'{prop0}'], color=color, mec='k', 
                  alpha=0.35, marker='o')
-    
-    
+
+
     ax2.tick_params(axis='y', labelcolor=color, direction='in',
                         length=7)
     minor_locator_x = AutoMinorLocator(2)
@@ -75,10 +74,18 @@ def property_ascension_plot(optim_frac_df, prop0, prop1, errbar=False, save=Fals
                     top=True)
       
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
-    plt.show()
+    plt.draw()
+    if save_dir is not None:
+        delim = '-'
+        fig_name = f'{save_dir}/{delim.join(optim_frac_df.iloc[0,0])}_property_optimization.png'
+        os.makedirs(save_dir, exist_ok=True)
+        plt.savefig(fig_name, bbox_inches='tight', dpi=300)
+    plt.draw()
+    plt.pause(0.001)
+    plt.close()
 
 
-def element_ascension_plot(optim_frac_df):
+def element_ascension_plot(optim_frac_df, save_dir=None):
     colors = sns.color_palette()
     elems = optim_frac_df.iloc[0,0]
     num_elems = int(len(optim_frac_df.iloc[0,0]))
@@ -106,4 +113,12 @@ def element_ascension_plot(optim_frac_df):
     plt.xlabel('Epoch')
     plt.ylabel('Atomic Percent (%)')
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
-    plt.show()
+    plt.draw()
+    if save_dir is not None:
+        delim = '-'
+        fig_name = f'{save_dir}/{delim.join(optim_frac_df.iloc[0,0])}_element_fractions.png'
+        os.makedirs(save_dir, exist_ok=True)
+        plt.savefig(fig_name, bbox_inches='tight', dpi=300)
+    plt.draw()
+    plt.pause(0.001)
+    plt.close()

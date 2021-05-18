@@ -28,55 +28,35 @@ np.random.seed(RNG_SEED)
 data_type_torch = torch.float32
 #%%
 
-# indicate desired properties to optimize from list of trained models
+# indicate the desired properties to optimize
+# listed properties should correspond names of trained models in directories
 
 prop0='aflow__ael_bulk_modulus_vrh'
+prop1='aflow__agl_thermal_conductivity_300K' # Leave as 'Loss' for single optim
 
-prop1='aflow__agl_thermal_conductivity_300K' # Leave as 'Loss' if only want to optimize prop0
+# The src tensor contains the atomic numbers of the elements whose fractions 
+# will be optimized. Hydrogen is considered element 0 in this representation.
 
-# Input elements numbers in src vector to base composition on.
-# Hydrogen is considered element 0 in this representation
+# The Ti-Cd-C system would be listed as [[21,47,5]]
 
 src = torch.tensor([[19,
                      13,
                      12,
                      7]])
 
-alpha = 0.5 # weight parameter for optimization, applies directly to prop0
+# AscendModel initializes the models and variables for gradient ascent
+AscendModel = AscendedCrab(src, prop0, prop1, alpha=0.5, lr=0.1)
 
-AscendModel = AscendedCrab(src, prop0, prop1, alpha, lr=0.025)
-
+# The ascend model conducts the gradient ascent and returns a df with results
 optimized_frac_df = AscendModel.ascend(epochs=100)
 
-property_ascension_plot(optimized_frac_df, prop0, prop1, errbar=True)
+# plot the changes in predicted properties across epochs during gradient ascent
+property_ascension_plot(optimized_frac_df, prop0, prop1, save_dir='figures',
+                        errbar=True)
 
-element_ascension_plot(optimized_frac_df)
+# show changes in atomic percent for candidate elements during gradient ascent
+element_ascension_plot(optimized_frac_df, save_dir='figures')
 
-#
-# dummy_src = src
-# dummy_frac = torch.tensor([[0.85224, 0.0497999, 0.04282987, 0.05512916]])
+# save gradient ascent results to csv file
+save_results(optimized_frac_df, save_dir='results')
 
-# model_0 = load_model(prop0)
-# model_1 = load_model(prop1)
-# sp0, _, prop0_pred, prop0_unc = model_0.single_predict(dummy_src, dummy_frac)
-psp1, _, rop1_pred, prop1_unc = model_1.single_predict(dummy_src, dummy_frac)
-
-
-# enter a source composition using the element numbers as they appear in
-# the peridodic table
-
-# give some recommendations
-
-# src = [1,2,3]
-
-# prop1 = 'bulk mod'
-
-#defaults to loss
-# prop2 = 'loss'
-
-# call print results method
-
-# plotting function
-# simple plot
-# plot with uncertainty
-# mutlipanel plot

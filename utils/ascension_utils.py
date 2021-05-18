@@ -55,7 +55,7 @@ class AscendedCrab():
 
 
         optimizer = optim.Adam([frac.requires_grad_()], lr=self.lr)
-        # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-20], gamma=0.1, last_epoch=-1, verbose=False)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-10], gamma=0.1, last_epoch=-1, verbose=False)
         criterion = nn.L1Loss()
         # criterion = nn.MSELoss()
         criterion = criterion.to(compute_device)
@@ -80,7 +80,8 @@ class AscendedCrab():
                 scaled_p1, _, prop1_pred, prop1_unc = self.model_1.single_predict(self.src, soft_frac)
                 loss1 = criterion(scaled_p1, torch.tensor([[-100000.0]]).to(compute_device))
 
-                loss = (self.alpha * loss0) + ((1-self.alpha)*loss1)
+                # loss = (self.alpha * loss0) + ((1-self.alpha)*loss1)
+                loss = loss0 + loss1
                 loss.backward()
 
                 loss1s.append(loss1.item())
@@ -92,7 +93,7 @@ class AscendedCrab():
                 loss0.backward()
 
             optimizer.step()
-            # scheduler.step()
+            scheduler.step()
 
             loss0s.append(loss0.item())
             srcs.append(self.src)
@@ -180,6 +181,12 @@ def elem_lookup(src):
     elem_names = [all_symbols[i] for i in numpy_src]
     return elem_names
 
+def save_results(optim_frac_df, save_dir=None):
+    if save_dir is not None:
+        delim = '-'
+        file_name = f'{save_dir}/{delim.join(optim_frac_df.iloc[0,0])}_optimization_results.csv'
+        os.makedirs(save_dir, exist_ok=True)
+        optim_frac_df.to_csv(file_name, index=False)
 #%%
 # if __name__ == '__main__':
 #     pass
