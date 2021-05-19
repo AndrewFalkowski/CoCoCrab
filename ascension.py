@@ -34,24 +34,20 @@ data_type_torch = torch.float32
 
 prop0='aflow__ael_bulk_modulus_vrh'
 prop0_target = 'max' # whether to maximize or minimize this property
-prop1='aflow__agl_thermal_conductivity_300K' # Set to 'Loss' for single optim
+prop1='Loss' # Set to 'Loss' for single optim
 prop1_target = 'min'
 
 # The src tensor contains the atomic numbers of the elements whose fractions 
-# will be optimized. Hydrogen is considered element 0 in this representation.
+# will be optimized. Elements should be listed according to their atomic number
 
-# The Ti-Cd-C system would be listed as [[21,47,5]]
+# The Ti-Cd-C system would be listed as [[22,48,6]]
 
-src = torch.tensor([[19,
-                     13,
-                     12,
-                     7]])
-
-
+# src = torch.tensor([[73, 74, 75, 76, 77, 42, 43, 5, 6, 7]])
+src = torch.tensor([[6, 7, 74, 42]])
 
 # AscendModel initializes the models and variables for gradient ascent
 AscendModel = AscendedCrab(src, prop0, prop1, prop0_target, prop1_target, 
-                           alpha=0.5, lr=0.1)
+                           alpha=0.5, lr=0.05)
 
 # The ascend model conducts the gradient ascent and returns a df with results
 optimized_frac_df = AscendModel.ascend(epochs=100)

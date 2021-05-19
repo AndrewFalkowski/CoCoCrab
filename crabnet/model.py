@@ -286,6 +286,8 @@ class Model():
             for i, data in enumerate(loader):
                 X, y, formula = data
                 src, frac = X.squeeze(-1).chunk(2, dim=1)
+                print(f'src: {src}')
+                print(f'frac: {frac}')
                 src = src.to(self.compute_device,
                              dtype=torch.long,
                              non_blocking=True)
@@ -317,45 +319,11 @@ class Model():
 
 
     def single_predict(self, src, frac):
-        # len_dataset = len(loader.dataset)
-        # n_atoms = int(len(loader.dataset[0][0])/2)
-        # act = np.zeros(len_dataset)
-        # pred = np.zeros(len_dataset)
-        # uncert = np.zeros(len_dataset)
-        # formulae = np.empty(len_dataset, dtype=list)
-        # atoms = np.empty((len_dataset, n_atoms))
-        # fractions = np.empty((len_dataset, n_atoms))
         self.model.eval()
-        # with torch.no_grad():
-            # for i, data in enumerate(loader):
-            #     X, y, formula = data
-            #     src, frac = X.squeeze(-1).chunk(2, dim=1)
-            #     src = src.to(self.compute_device,
-            #                  dtype=torch.long,
-            #                  non_blocking=True)
-            #     frac = frac.to(self.compute_device,
-            #                    dtype=data_type_torch,
-            #                    non_blocking=True)
-            #     y = y.to(self.compute_device,
-            #              dtype=data_type_torch,
-            #              non_blocking=True)
         output = self.model.forward(src, frac)
         scaled_prediction, scaled_uncertainty = output.chunk(2, dim=-1)
         uncertainty = torch.exp(scaled_uncertainty) * self.scaler.std
         prediction = self.scaler.unscale(scaled_prediction)
-        # if self.classification:
-        #     prediction = torch.sigmoid(prediction)
-
-                # data_loc = slice(i*self.batch_size,
-                #                  i*self.batch_size+len(y),
-                #                  1)
-
-                # atoms[data_loc, :] = src.cpu().numpy()
-                # fractions[data_loc, :] = frac.cpu().numpy()
-                # act[data_loc] = y.view(-1).cpu().numpy()
-                # pred[data_loc] = prediction.view(-1).cpu().detach().numpy()
-                # uncert[data_loc] = uncertainty.view(-1).cpu().detach().numpy()
-                # formulae[data_loc] = formula
 
         return (scaled_prediction, scaled_uncertainty, prediction, uncertainty)
 

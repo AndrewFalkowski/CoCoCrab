@@ -13,8 +13,7 @@ compute_device = get_compute_device(prefer_last=True)
 
 class AscendedCrab():
     def __init__(self, src, prop0, prop1, prop0_target, prop1_target,
-                 alpha=0.5, saving=False, ensemble=False,
-                 lr=0.025, compute_device=compute_device):
+                 alpha=0.5, lr=0.025, compute_device=compute_device):
         
         self.src = src.to(compute_device, dtype=torch.long, non_blocking=True)
         self.prop0 = prop0
@@ -22,8 +21,6 @@ class AscendedCrab():
         self.prop1 = prop1
         self.prop1_target = 1 if prop1_target == 'max' else -1
         self.alpha = alpha
-        self.saving = saving
-        self.ensemble=False
         self.lr = lr
         self.compute_device = compute_device
         self.model_0 = load_model(self.prop0)
@@ -48,7 +45,7 @@ class AscendedCrab():
             prop1_uncs = []
 
 
-        frac = torch.rand(int(self.src.shape[1])).view(1,-1) \
+        frac = torch.ones(int(self.src.shape[1])).view(1,-1) \
                 .to(compute_device,dtype=torch.float,non_blocking=True)\
 
 
@@ -59,33 +56,23 @@ class AscendedCrab():
 
 
         optimizer = optim.Adam([frac.requires_grad_()], lr=self.lr)
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-5], gamma=0.1, last_epoch=-1, verbose=False)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-5], gamma=0.1, last_epoch=-1)
         criterion = nn.L1Loss()
-        # criterion = nn.MSELoss()
         criterion = criterion.to(compute_device)
         torch.autograd.set_detect_anomaly(True)
         for epoch in tqdm(range(epochs)):
-
             soft_frac = masked_softmax(frac, frac_mask)
-
+            # frac_mask = torch.where(soft_frac > 0.01, 1, 0)
             optimizer.zero_grad()
             if not self.prop1 == 'Loss':
-                # prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
-                # if epoch == 0:
-                #     init_0 = prop0_pred.clone().detach()
-                # loss0 = criterion((prop0_pred/init_0), torch.tensor([[100000.0]]).to(compute_device))
-                # prop1_pred, prop1_unc = self.model_1.single_predict(self.src, soft_frac)
-                # if epoch == 0:
-                #     init_1 = prop1_pred.clone().detach()
-                # loss1 = criterion((init_1/prop1_pred), torch.tensor([[100000.0]]).to(compute_device))
 
-                scaled_p0, _, prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
+                scaled_p0, scaled_unc, prop0_pred, prop0_unc = self.model_0.single_predict(self.src, soft_frac)
                 loss0 = criterion(scaled_p0, torch.tensor([[self.prop0_target*100000.0]]).to(compute_device))
                 scaled_p1, _, prop1_pred, prop1_unc = self.model_1.single_predict(self.src, soft_frac)
                 loss1 = criterion(scaled_p1, torch.tensor([[self.prop1_target*100000.0]]).to(compute_device))
 
-                # loss = (self.alpha * loss0) + ((1-self.alpha)*loss1)
-                loss = loss0 + loss1
+                loss = (self.alpha * loss0) + ((1-self.alpha)*loss1)
+                # loss = loss0 + loss1
                 loss.backward()
 
                 loss1s.append(loss1.item())
@@ -145,7 +132,7 @@ def load_model(prop):
         model = Model(CrabNet(compute_device=compute_device).to(compute_device),
                         model_name=f'{model_name}', verbose=False)
         model.load_network(f'{prop}.pth')
-        model.load_data(data, batch_size=2**9, train=False)
+        model.load_data(data, batch_size=2**9)
     except:
         model_list = os.listdir('models/trained_models/')
         print('\nAn error occurred while trying to load the model...\n')
@@ -182,7 +169,7 @@ def elem_lookup(src):
                    'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg',
                    'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og']
 
-    elem_names = [all_symbols[i] for i in numpy_src]
+    elem_names = [all_symbols[i-1] for i in numpy_src]
     return elem_names
 
 def save_results(optim_frac_df, save_dir=None):

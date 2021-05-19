@@ -5,7 +5,7 @@ import torch
 
 from sklearn.metrics import roc_auc_score
 
-from crabnet.kingcrab import CrabNet
+from crabnet.neokingcrab import CrabNet
 from crabnet.model import Model
 from utils.get_compute_device import get_compute_device
 

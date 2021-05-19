@@ -246,32 +246,32 @@ class CrabNet(nn.Module):
         return output
 
 
-def frac_expansion(frac, d_model=200, resolution=100, log10=False):
+# def frac_expansion(frac, d_model=200, resolution=100, log10=False):
 
-    d_model = d_model//2
+#     d_model = d_model//2
 
-    # preprocess fractions
-    if log10:
-        frac = 0.0025* (torch.log2(frac))**2
-        frac[frac > 1] = 1
-    frac[frac < 1/resolution] = 1/resolution
-    rounded_frac = torch.round(frac * resolution).to(dtype=torch.long) - 1
+#     # preprocess fractions
+#     if log10:
+#         frac = 0.0025* (torch.log2(frac))**2
+#         frac[frac > 1] = 1
+#     frac[frac < 1/resolution] = 1/resolution
+#     rounded_frac = torch.round(frac * resolution).to(dtype=torch.long) - 1
 
-    fraction = torch.linspace(0, d_model - 1,
-                              d_model,
-                              requires_grad=False) \
-                              .view(1, d_model)
+#     fraction = torch.linspace(0, d_model - 1,
+#                               d_model,
+#                               requires_grad=False) \
+#                               .view(1, d_model)
 
-    pe = torch.zeros(rounded_frac.shape[0], d_model)
+#     pe = torch.zeros(rounded_frac.shape[0], d_model)
 
-    pe[:, 0::2] = torch.sin(rounded_frac /torch.pow(
-        50,2 * fraction[:, 0::2] / d_model))
+#     pe[:, 0::2] = torch.sin(rounded_frac /torch.pow(
+#         50,2 * fraction[:, 0::2] / d_model))
 
-    pe[:, 1::2] = torch.cos(rounded_frac / torch.pow(
-        50, 2 * fraction[:, 1::2] / d_model))
+#     pe[:, 1::2] = torch.cos(rounded_frac / torch.pow(
+#         50, 2 * fraction[:, 1::2] / d_model))
 
-    pe = pe.view(-1,1,100)
-    return pe
+#     pe = pe.view(-1,1,100)
+#     return pe
 
 # %%
 if __name__ == '__main__':
