@@ -59,10 +59,10 @@ class AscendedCrab():
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-5], gamma=0.1, last_epoch=-1)
         criterion = nn.L1Loss()
         criterion = criterion.to(compute_device)
-        torch.autograd.set_detect_anomaly(True)
         for epoch in tqdm(range(epochs)):
             soft_frac = masked_softmax(frac, frac_mask)
-            # frac_mask = torch.where(soft_frac > 0.01, 1, 0)
+            # soft_frac = normalize_fracs(frac)
+            # soft_frac = threshold_vec(soft_frac, threshold=0.01)
             optimizer.zero_grad()
             if not self.prop1 == 'Loss':
 
@@ -150,6 +150,18 @@ def masked_softmax(vec, mask, dim=1, epsilon=1e-5):
     masked_sums = masked_exps.sum(dim, keepdim=True) + epsilon
     return (masked_exps/masked_sums)
 
+def normalize_fracs(vec):
+    vec = abs(vec)
+    vec_sum = vec.sum()
+    norm_vec = vec / vec_sum
+    return norm_vec
+
+def threshold_vec (norm_vec, threshold=0.01):
+    threshold = torch.tensor(threshold, dtype=torch.float)
+    thresh_vec = torch.where(norm_vec < threshold, 
+                             torch.tensor(0, dtype=norm_vec.dtype), norm_vec)
+    norm_thresh_vec = normalize_fracs(thresh_vec)
+    return norm_thresh_vec
 
 def elem_lookup(src):
     try:

@@ -43,21 +43,21 @@ prop1_target = 'min'
 # The Ti-Cd-C system would be listed as [[22,48,6]]
 
 # src = torch.tensor([[73, 74, 75, 76, 77, 42, 43, 5, 6, 7]])
-src = torch.tensor([[6, 7, 74, 42]])
+src = torch.tensor([[20,13,14,8]])
+# src = torch.tensor([[22,48,6]])
 
 # AscendModel initializes the models and variables for gradient ascent
 AscendModel = AscendedCrab(src, prop0, prop1, prop0_target, prop1_target, 
-                           alpha=0.5, lr=0.05)
+                            alpha=0.8, lr=0.05)
 
 # The ascend model conducts the gradient ascent and returns a df with results
 optimized_frac_df = AscendModel.ascend(epochs=100)
 
 # plot the changes in predicted properties across epochs during gradient ascent
-property_ascension_plot(optimized_frac_df, prop0, prop1, save_dir='figures',
-                        errbar=True)
+property_ascension_plot(optimized_frac_df, prop0, prop1, save_dir=None)
 
 # show changes in atomic percent for candidate elements during gradient ascent
-element_ascension_plot(optimized_frac_df, save_dir='figures')
+element_ascension_plot(optimized_frac_df, save_dir=None)
 
 # save gradient ascent results to csv file
-save_results(optimized_frac_df, save_dir='results')
+# save_results(optimized_frac_df, save_dir='results')
