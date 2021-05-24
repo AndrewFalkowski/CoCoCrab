@@ -18,7 +18,22 @@ plt.rcParams.update({'font.size': 14})
 #%%
 
 def property_optim_plot(optim_frac_df, prop0, prop1, save_dir=None):
+    '''
+    Parameters
+    ----------
+    optim_frac_df : Pandas DataFrame
+        Pandas DataFrame produced by calling CoCoCrab.optimize
+    prop0 : str
+        Optimized property to plot
+    prop1 : str, optional
+        Second optimized property to plot, defaults to loss.
+    save_dir : str, optional
+        The directory to save produced plots to The default is None.
 
+    Returns
+    -------
+    Plot of property response to changes in elemental fractions
+    '''
     colors = sns.color_palette('mako', 2)
     fig, ax1 = plt.subplots()
     epochs = optim_frac_df.index.values
@@ -26,7 +41,6 @@ def property_optim_plot(optim_frac_df, prop0, prop1, save_dir=None):
     color = colors[1]
     ax1.set_xlabel('Epoch')
     ax1.set_ylabel(f'{prop1}', color=color)
-    # ax1.set_ylabel(f'Decomposition Energy (eV/atom)', color=color)
     if not prop1 == 'Loss':
         ax1.errorbar(epochs, optim_frac_df[f'{prop1}'], 
                      yerr=optim_frac_df[f'{prop1} UNC'], 
@@ -51,7 +65,6 @@ def property_optim_plot(optim_frac_df, prop0, prop1, save_dir=None):
       
     color = colors[0]
     ax2.set_ylabel(f'{prop0}', color=color)
-    # ax2.set_ylabel(f'Bulk Modulus (GPa)', color=color)
     ax2.errorbar(epochs, optim_frac_df[f'{prop0}'], 
                  yerr=optim_frac_df[f'{prop0} UNC'], 
                  color=color, mec='k', alpha=0.35, marker='o')
@@ -68,7 +81,6 @@ def property_optim_plot(optim_frac_df, prop0, prop1, save_dir=None):
                     right=True,
                     top=True)
       
-    # fig.tight_layout()  # otherwise the right y-label is slightly clipped
     plt.draw()
     if save_dir is not None:
         delim = '-'
@@ -83,6 +95,19 @@ def property_optim_plot(optim_frac_df, prop0, prop1, save_dir=None):
 
 
 def element_optim_plot(optim_frac_df, save_dir=None):
+    '''
+    Parameters
+    ----------
+    optim_frac_df : Pandas DataFrame
+        Pandas DataFrame produced by calling CoCoCrab.optimize
+    save_dir : str, optional
+        The directory to save produced plots to The default is None.
+
+    Returns
+    -------
+    Plot of changes in atomic percent of elements during optimization
+
+    '''
     colors = sns.color_palette()
     elems = optim_frac_df.iloc[0,0]
     num_elems = int(len(optim_frac_df.iloc[0,0]))
@@ -91,11 +116,9 @@ def element_optim_plot(optim_frac_df, save_dir=None):
     
     fig = plt.figure(figsize=(5,5))
     fig, ax1 = plt.subplots()
-    # plt.subplots_adjust(left=0.9, right =1)
     for elem in range(num_elems):
         plt.plot(atom_percent[:,elem], linestyle=None, marker='s', 
                  color=colors[elem], alpha=0.35, mec='k', label = f'{elems[elem]}')
-    # plt.legend(loc='upper right', bbox_to_anchor=(-0.05,1), framealpha=0.95)
     plt.legend(loc='upper left', framealpha=0.95)
     ax1.yaxis.set_label_position("right")
     ax1.yaxis.tick_right()
@@ -114,7 +137,6 @@ def element_optim_plot(optim_frac_df, save_dir=None):
     plt.ylim(0, 100)
     plt.xlabel('Epoch')
     plt.ylabel('Atomic Percent (%)')
-    # fig.tight_layout()  # otherwise the right y-label is slightly clipped
     plt.draw()
     if save_dir is not None:
         delim = '-'
@@ -126,10 +148,27 @@ def element_optim_plot(optim_frac_df, save_dir=None):
     plt.draw()
     plt.pause(0.001)
     plt.close()
-    
-#%%
 
-def two_panel_optimization(optim_frac_df, prop0, prop1, save_dir):
+
+def two_panel_optim(optim_frac_df, prop0, prop1, save_dir):
+    '''
+    Parameters
+    ----------
+    optim_frac_df : Pandas DataFrame
+        Pandas DataFrame produced by calling CoCoCrab.optimize
+    prop0 : str
+        Optimized property to plot
+    prop1 : str, optional
+        Second optimized property to plot, defaults to loss.
+    save_dir : str, optional
+        The directory to save produced plots to The default is None.
+
+    Returns
+    -------
+    Two panel plot of changes in predicted property(ies) and atomic number 
+    during optimization. These are the plots used in the corresponding paper.
+    '''
+
     fig = plt.figure(figsize=(11,5))
     spec = gridspec.GridSpec(ncols=2, nrows=1, figure=fig, width_ratios=[1, 1], 
                              wspace=0.35)
@@ -166,14 +205,12 @@ def two_panel_optimization(optim_frac_df, prop0, prop1, save_dir):
     
     ax11 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
     color = colors[0]
-    # ax2.set_ylabel(f'{prop0}', color=color)
-    ax11.set_ylabel(f'Bulk Modulus (GPa)', color=color)
+    ax11.set_ylabel(f'{prop0}', color=color)
     ax11.errorbar(epochs, optim_frac_df[f'{prop0}'], 
                  yerr=optim_frac_df[f'{prop0} UNC'], 
                  color=color, mec='k', alpha=0.35, marker='o')
     ax11.tick_params(axis='y', labelcolor=color, direction='in',
                         length=7)
-    # ax11.set_ylim(120,170)
     minor_locator_x = AutoMinorLocator(2)
     minor_locator_y = AutoMinorLocator(2)
     ax11.get_xaxis().set_minor_locator(minor_locator_x)
@@ -190,17 +227,13 @@ def two_panel_optimization(optim_frac_df, prop0, prop1, save_dir):
              verticalalignment='center', transform=ax2.transAxes)
     colors = sns.color_palette()
     elems = optim_frac_df.iloc[0,0]
-    # elems = ['Ti', 'Cd', 'C']
-    # num_elems = 3
     num_elems = int(len(optim_frac_df.iloc[0,0]))
     atom_percent = (np.concatenate(optim_frac_df['Fractions'].values)\
         .reshape(-1,num_elems))*100
     
-    # plt.subplots_adjust(left=0.9, right =1)
     for elem in range(num_elems):
         plt.plot(atom_percent[:,elem], linestyle=None, marker='s', 
                  color=colors[elem], alpha=0.35, mec='k', label = f'{elems[elem]}')
-    # plt.legend(loc='upper right', bbox_to_anchor=(-0.05,1), framealpha=0.95)
     plt.legend(loc='upper left', ncol=2, framealpha=0.95)
     ax2.yaxis.set_label_position("right")
     ax2.yaxis.tick_right()
@@ -227,5 +260,3 @@ def two_panel_optimization(optim_frac_df, prop0, prop1, save_dir):
     plt.draw()
     plt.pause(0.001)
     plt.close()
-
-# two_panel_optimization(optimized_frac_df, prop0, prop1, save_dir='figures')

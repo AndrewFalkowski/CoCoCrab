@@ -54,13 +54,16 @@ OptimModel = CoCoCrab(src, prop0, prop1, prop0_target, prop1_target,
                             alpha, lr=0.05)
 
 # The ascend model conducts the gradient ascent and returns a df with results
-optimized_frac_df = OptimModel.optimize(epochs=100)
+optimized_frac_df = OptimModel.optimize_comp(epochs=100)
 
 # plot the changes in predicted properties across epochs during gradient ascent
-property_ascension_plot(optimized_frac_df, prop0, prop1, save_dir=None)
+property_optim_plot(optimized_frac_df, prop0, prop1, save_dir=None)
 
 # show changes in atomic percent for candidate elements during gradient ascent
-element_ascension_plot(optimized_frac_df, save_dir=None)
+element_optim_plot(optimized_frac_df, save_dir=None)
+
+# show both plots on two panel plot, used to produce paper figures
+two_panel_optim(optimized_frac_df, prop0, prop1, save_dir=None)
 
 # save gradient ascent results to csv file
 save_results(optimized_frac_df, save_dir=None)

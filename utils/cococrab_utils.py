@@ -1,4 +1,3 @@
-# ascension hub utils
 import os, sys
 import torch
 import torch.optim as optim
@@ -12,8 +11,12 @@ from utils.get_compute_device import get_compute_device
 compute_device = get_compute_device(prefer_last=True)
 
 class CoCoCrab():
+    """
+    Class for perfomring composition optimization as discussd in:
+    
+    """
     def __init__(self, src, prop0, prop1, prop0_target, prop1_target,
-                 alpha=0.5, lr=0.025, compute_device=compute_device):
+                 alpha=0.5, lr=0.05, compute_device=compute_device):
         
         self.src = src.to(compute_device, dtype=torch.long, non_blocking=True)
         self.prop0 = prop0
@@ -28,12 +31,12 @@ class CoCoCrab():
             self.model_1 = load_model(self.prop1)
 
 
-    def optmize(self, epochs=100):
+    def optimize_comp(self, epochs=100):
 
         delim = '-'
         print(f'\n\nOptimizing {delim.join(elem_lookup(self.src))} System...\n'.title())
 
-        loss0s = []
+        loss0s = [] # initialize lists for tracking relevant information
         srcs = []
         fracs = []
 
@@ -44,7 +47,7 @@ class CoCoCrab():
             prop1_preds = []
             prop1_uncs = []
 
-
+        # create frac based on shape of src vector
         frac = torch.ones(int(self.src.shape[1])).view(1,-1) \
                 .to(compute_device,dtype=torch.float,non_blocking=True)\
 
@@ -54,15 +57,13 @@ class CoCoCrab():
                               dtype=torch.float,
                               non_blocking=True)
 
-
+        # tell Adam to optimize the fraction tensor, ensure requires_grad()
         optimizer = optim.Adam([frac.requires_grad_()], lr=self.lr)
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [epochs-5], gamma=0.1, last_epoch=-1)
         criterion = nn.L1Loss()
         criterion = criterion.to(compute_device)
         for epoch in tqdm(range(epochs)):
             soft_frac = masked_softmax(frac, frac_mask)
-            # soft_frac = normalize_fracs(frac)
-            # soft_frac = threshold_vec(soft_frac, threshold=0.01)
             optimizer.zero_grad()
             if not self.prop1 == 'Loss':
 
