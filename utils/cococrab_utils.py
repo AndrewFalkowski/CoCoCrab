@@ -11,7 +11,7 @@ from utils.get_compute_device import get_compute_device
 
 compute_device = get_compute_device(prefer_last=True)
 
-class AscendedCrab():
+class CoCoCrab():
     def __init__(self, src, prop0, prop1, prop0_target, prop1_target,
                  alpha=0.5, lr=0.025, compute_device=compute_device):
         
@@ -28,7 +28,7 @@ class AscendedCrab():
             self.model_1 = load_model(self.prop1)
 
 
-    def ascend(self, epochs=100):
+    def optmize(self, epochs=100):
 
         delim = '-'
         print(f'\n\nOptimizing {delim.join(elem_lookup(self.src))} System...\n'.title())

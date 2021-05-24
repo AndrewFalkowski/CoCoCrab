@@ -12,10 +12,9 @@ from tabulate import tabulate
 
 from crabnet.neokingcrab import CrabNet
 from crabnet.model import Model
-# from utils.utils import EDMDataset
 from utils.get_compute_device import get_compute_device
-from utils.ascension_utils import *
-from utils.ascension_plots import *
+from utils.cococrab_utils import *
+from utils.cococrab_plots import *
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
@@ -29,29 +28,33 @@ data_type_torch = torch.float32
 
 #%%
 
-# indicate the desired properties to optimize
-# listed properties should correspond names of trained models in directories
+# Indicate the desired properties to optimize
+
+# Listed properties should correspond trained models in models/trained_models
 
 prop0='aflow__ael_bulk_modulus_vrh'
 prop0_target = 'max' # whether to maximize or minimize this property
-prop1='Loss' # Set to 'Loss' for single optim
+prop1='Loss' # Set to 'Loss' for single property optimization
 prop1_target = 'min'
+
+# Alpha governs the balancing of loss functions in multi-property optimization
+# tasks. Higher alpha prioritizes prop0, lower alpha prioritizes prop1, when 
+# alpha=0.5, neither is prioritized
+alpha = 0.5
 
 # The src tensor contains the atomic numbers of the elements whose fractions 
 # will be optimized. Elements should be listed according to their atomic number
 
 # The Ti-Cd-C system would be listed as [[22,48,6]]
 
-# src = torch.tensor([[73, 74, 75, 76, 77, 42, 43, 5, 6, 7]])
-src = torch.tensor([[20,13,14,8]])
-# src = torch.tensor([[22,48,6]])
+src = torch.tensor([[22,48,6]])
 
-# AscendModel initializes the models and variables for gradient ascent
-AscendModel = AscendedCrab(src, prop0, prop1, prop0_target, prop1_target, 
-                            alpha=0.8, lr=0.05)
+# AscendModel initializes the models and variables for optimization
+OptimModel = CoCoCrab(src, prop0, prop1, prop0_target, prop1_target, 
+                            alpha, lr=0.05)
 
 # The ascend model conducts the gradient ascent and returns a df with results
-optimized_frac_df = AscendModel.ascend(epochs=100)
+optimized_frac_df = OptimModel.optimize(epochs=100)
 
 # plot the changes in predicted properties across epochs during gradient ascent
 property_ascension_plot(optimized_frac_df, prop0, prop1, save_dir=None)
@@ -60,4 +63,4 @@ property_ascension_plot(optimized_frac_df, prop0, prop1, save_dir=None)
 element_ascension_plot(optimized_frac_df, save_dir=None)
 
 # save gradient ascent results to csv file
-# save_results(optimized_frac_df, save_dir='results')
+save_results(optimized_frac_df, save_dir=None)

@@ -17,7 +17,7 @@ plt.rcParams.update({'font.size': 14})
 
 #%%
 
-def property_ascension_plot(optim_frac_df, prop0, prop1, save_dir=None):
+def property_optim_plot(optim_frac_df, prop0, prop1, save_dir=None):
 
     colors = sns.color_palette('mako', 2)
     fig, ax1 = plt.subplots()
@@ -82,7 +82,7 @@ def property_ascension_plot(optim_frac_df, prop0, prop1, save_dir=None):
     plt.close()
 
 
-def element_ascension_plot(optim_frac_df, save_dir=None):
+def element_optim_plot(optim_frac_df, save_dir=None):
     colors = sns.color_palette()
     elems = optim_frac_df.iloc[0,0]
     num_elems = int(len(optim_frac_df.iloc[0,0]))
