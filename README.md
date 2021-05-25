@@ -8,6 +8,4 @@ Traditional, data-driven materials discovery involves screening chemical systems
 
 More information is available in the CoCoCrab manuscript here: (coming soon)
 
-## Citing
 
-(coming soon)
