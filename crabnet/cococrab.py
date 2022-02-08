@@ -94,33 +94,16 @@ class FractionalEncoder(nn.Module):
         self.log10 = log10
         self.compute_device = compute_device
 
-        # x = torch.linspace(0, self.resolution - 1,
-        #                    self.resolution,
-        #                    requires_grad=False) \
-        #     .view(self.resolution, 1)
-        # fraction = torch.linspace(0, self.d_model - 1,
-        #                           self.d_model,
-        #                           requires_grad=False) \
-        #     .view(1, self.d_model).repeat(self.resolution, 1)
-        #
-        # pe = torch.zeros(self.resolution, self.d_model)
-        # pe[:, 0::2] = torch.sin(x /torch.pow(
-        #     50,2 * fraction[:, 0::2] / self.d_model))
-        # pe[:, 1::2] = torch.cos(x / torch.pow(
-        #     50, 2 * fraction[:, 1::2] / self.d_model))
-        # pe = self.register_buffer('pe', pe)
 
     def forward(self, x):
-
-        rounded_frac = x.clone().to(self.compute_device)
-        # rounded_frac = x
+        rounded_frac = x
+        rounded_frac = torch.where(rounded_frac < 0.001, torch.tensor(0.0), rounded_frac)
         if self.log10:
+            # print(f'before : {x}')
             x = 0.0025 * (torch.log2(x))**2
             x[x > 1] = 1
-            # x = 1 - x  # for sinusoidal encoding at x=0
-            
-        x[x < 1/self.resolution] = 1/self.resolution
-        
+            x = 1 - x  # for sinusoidal encoding at x=0
+
         fraction = torch.linspace(0, self.d_model - 1,
                                   self.d_model,
                                   requires_grad=True).view(1, self.d_model) \
@@ -137,7 +120,9 @@ class FractionalEncoder(nn.Module):
 
             pe[i, :, 1::2] = (torch.cos(rounded_frac[i].view(1,-1) / torch.pow(
                 50, 2 * fraction[:, 1::2].T / self.d_model))).T
-            
+
+        # pe = torch.matmul(rounded_frac, pe[0])
+
         return pe
 
 
@@ -186,14 +171,16 @@ class Encoder(nn.Module):
         ple_scaler = 2**(1-self.pos_scaler_log)**2
         pe[:, :, :self.d_model//2] = self.pe(frac) * pe_scaler
         ple[:, :, self.d_model//2:] = self.ple(frac) * ple_scaler
-
         if self.attention:
             x_src = x + pe + ple
             x_src = x_src.transpose(0, 1)
+            # print(x_src)
+            # print(x_src.shape)
+            drop_mask = torch.where(pe[0,:,0] == 0, 0, 1).reshape(-1, 1, 1)
+            y = drop_mask * x_src
             x = self.transformer_encoder(x_src,
                                          src_key_padding_mask=src_mask)
             x = x.transpose(0, 1)
-
         if self.fractional:
             x = x * frac.unsqueeze(2).repeat(1, 1, self.d_model)
 
@@ -229,15 +216,23 @@ class CrabNet(nn.Module):
                                          self.out_hidden)
 
     def forward(self, src, frac):
+        # print(f'src before encoder: {src}')
+        # print(f'frac before encoder: {frac}')
+        
+        # set elements with fraction below dopant threshold to zero
+        src = torch.where(frac == 0.0, 0, src)
         output = self.encoder(src, frac)
-
         # average the "element contribution" at the end
         # mask so you only average "elements"
         mask = (src == 0).unsqueeze(-1).repeat(1, 1, self.out_dims)
+        # print(f'the mask looks like: {mask}')
         output = self.output_nn(output)  # simple linear
+
         if self.avg:
             output = output.masked_fill(mask, 0)
+            # print(f'(2)The next output looks like this:\n {output}')
             output = output.sum(dim=1)/(~mask).sum(dim=1)
+            # print(f'(3)The next output looks like this:\n {output}')
             output, logits = output.chunk(2, dim=-1)
             probability = torch.ones_like(output)
             probability[:, :logits.shape[-1]] = torch.sigmoid(logits)
@@ -245,33 +240,6 @@ class CrabNet(nn.Module):
 
         return output
 
-
-# def frac_expansion(frac, d_model=200, resolution=100, log10=False):
-
-#     d_model = d_model//2
-
-#     # preprocess fractions
-#     if log10:
-#         frac = 0.0025* (torch.log2(frac))**2
-#         frac[frac > 1] = 1
-#     frac[frac < 1/resolution] = 1/resolution
-#     rounded_frac = torch.round(frac * resolution).to(dtype=torch.long) - 1
-
-#     fraction = torch.linspace(0, d_model - 1,
-#                               d_model,
-#                               requires_grad=False) \
-#                               .view(1, d_model)
-
-#     pe = torch.zeros(rounded_frac.shape[0], d_model)
-
-#     pe[:, 0::2] = torch.sin(rounded_frac /torch.pow(
-#         50,2 * fraction[:, 0::2] / d_model))
-
-#     pe[:, 1::2] = torch.cos(rounded_frac / torch.pow(
-#         50, 2 * fraction[:, 1::2] / d_model))
-
-#     pe = pe.view(-1,1,100)
-#     return pe
 
 # %%
 if __name__ == '__main__':
