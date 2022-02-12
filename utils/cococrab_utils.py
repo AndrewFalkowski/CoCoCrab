@@ -3,8 +3,9 @@ import torch
 import torch.optim as optim
 from torch import nn
 from tqdm import tqdm
+import numpy as np
 import pandas as pd
-from crabnet.neokingcrab import CrabNet
+from crabnet.cococrab import CrabNet
 from crabnet.model import Model
 from utils.get_compute_device import get_compute_device
 
@@ -13,11 +14,11 @@ compute_device = get_compute_device(prefer_last=True)
 class CoCoCrab():
     """
     Class for perfomring composition optimization as discussd in:
-    
+
     """
     def __init__(self, src, prop0, prop1, prop0_target, prop1_target,
-                 alpha=0.5, lr=0.05, compute_device=compute_device):
-        
+                 alpha=0.5, lr=0.05, dopant_threshold=0.001, compute_device=compute_device):
+
         self.src = src.to(compute_device, dtype=torch.long, non_blocking=True)
         self.prop0 = prop0
         self.prop0_target = 1 if prop0_target == 'max' else -1
@@ -25,6 +26,7 @@ class CoCoCrab():
         self.prop1_target = 1 if prop1_target == 'max' else -1
         self.alpha = alpha
         self.lr = lr
+        self.dopant_threshold = dopant_threshold
         self.compute_device = compute_device
         self.model_0 = load_model(self.prop0)
         if not self.prop1 == 'Loss':
@@ -36,7 +38,8 @@ class CoCoCrab():
         delim = '-'
         print(f'\n\nOptimizing {delim.join(elem_lookup(self.src))} System...\n'.title())
 
-        loss0s = [] # initialize lists for tracking relevant information
+        # initialize lists for tracking relevant information
+        loss0s = []
         srcs = []
         fracs = []
 
@@ -63,7 +66,9 @@ class CoCoCrab():
         criterion = nn.L1Loss()
         criterion = criterion.to(compute_device)
         for epoch in tqdm(range(epochs)):
-            soft_frac = masked_softmax(frac, frac_mask)
+
+            soft_frac = dopant_filter(frac, threshold=self.dopant_threshold)
+            # soft_frac = masked_softmax(frac, frac_mask)
             optimizer.zero_grad()
             if not self.prop1 == 'Loss':
 
@@ -73,7 +78,6 @@ class CoCoCrab():
                 loss1 = criterion(scaled_p1, torch.tensor([[self.prop1_target*100000.0]]).to(compute_device))
 
                 loss = (self.alpha * loss0) + ((1-self.alpha)*loss1)
-                # loss = loss0 + loss1
                 loss.backward()
 
                 loss1s.append(loss1.item())
@@ -115,15 +119,22 @@ class CoCoCrab():
                    f'{self.prop1} UNC': prop1_uncs,
                   f'Prop1 Loss': loss1s})
 
-
-        print('\n-----------------------------------------------------')
-        print('\nOptimized Fractional Composition:\n'.title())
-        print(optimized_frac_df.tail(1).iloc[:,0:2].to_markdown(index=False, tablefmt="simple"))
-        print('\n')
-        print(optimized_frac_df.tail(1).iloc[:,2:5].to_markdown(index=False, tablefmt="rst"))
-        if not self.prop1 == 'Loss':
-            print(optimized_frac_df.tail(1).iloc[:,5:].to_markdown(index=False, tablefmt="rst"))
+        print_results(optimized_frac_df, self.prop1)
         return optimized_frac_df
+
+
+def print_results(optimized_frac_df, prop1='Loss'):
+        src = np.array(optimized_frac_df.iloc[-1,0]).reshape(-1)
+        frac = np.round(np.array(optimized_frac_df.iloc[-1,1]).reshape(-1),4)
+        print('\n================================')
+        print('OPTIMIZATION RESULTS')
+        print('================================')
+        print(pd.DataFrame({'Elements':src, 'Fractions':frac}).to_markdown(index=False, tablefmt='github', numalign='left'))
+        print('\n')
+        print(optimized_frac_df.tail(1).iloc[:,2:5].to_markdown(index=False, tablefmt="github", headers=('prop0 value', 'prop0 uncertainty', 'prop0 loss')))
+        if not prop1 == 'Loss':
+            print('\n')
+            print(optimized_frac_df.tail(1).iloc[:,5:].to_markdown(index=False, tablefmt="github", headers=('prop1 value', 'prop1 uncertainty', 'prop1 loss')))
 
 
 def load_model(prop):
@@ -144,25 +155,25 @@ def load_model(prop):
         sys.exit()
     return model
 
-
 def masked_softmax(vec, mask, dim=1, epsilon=1e-5):
     exps = torch.exp(vec)
     masked_exps = exps * mask
     masked_sums = masked_exps.sum(dim, keepdim=True) + epsilon
     return (masked_exps/masked_sums)
 
+def dopant_filter(vec, threshold):
+    norm_vec = normalize_fracs(vec)
+    threshold = torch.tensor(threshold, dtype=torch.float)
+    thresh_vec = torch.where(norm_vec < threshold,
+                             torch.tensor(0.0, dtype=norm_vec.dtype), norm_vec)
+    norm_thresh_vec = normalize_fracs(thresh_vec)
+    return norm_thresh_vec
+
 def normalize_fracs(vec):
     vec = abs(vec)
     vec_sum = vec.sum()
     norm_vec = vec / vec_sum
     return norm_vec
-
-def threshold_vec (norm_vec, threshold=0.01):
-    threshold = torch.tensor(threshold, dtype=torch.float)
-    thresh_vec = torch.where(norm_vec < threshold, 
-                             torch.tensor(0, dtype=norm_vec.dtype), norm_vec)
-    norm_thresh_vec = normalize_fracs(thresh_vec)
-    return norm_thresh_vec
 
 def elem_lookup(src):
     try:
