@@ -1,4 +1,3 @@
-# %%
 import os
 import numpy as np
 import pandas as pd
@@ -27,16 +26,15 @@ torch.manual_seed(RNG_SEED)
 np.random.seed(RNG_SEED)
 data_type_torch = torch.float32
 
-#%%
 
 # Indicate the desired properties to optimize
 
 # Listed properties should correspond trained models in models/trained_models
 
-prop0='aflow__ael_bulk_modulus_vrh'
-prop0_target = 'max' # whether to maximize or minimize this property
-prop1='decomposition_energy' # Set to 'Loss' for single property optimization
-prop1_target = 'min'
+prop0 = "aflow__ael_bulk_modulus_vrh"
+prop0_target = "max"  # whether to maximize or minimize this property
+prop1 = "decomposition_energy"  # Set to 'Loss' for single property optimization
+prop1_target = "min"
 
 # Alpha governs the balancing of loss functions in multi-property optimization
 # tasks. Higher alpha prioritizes prop0, lower alpha prioritizes prop1, when
@@ -49,16 +47,21 @@ alpha = 0.5
 # The Ti-Cd-C system would be listed as [[22,48,6]]
 
 src = torch.tensor([[6, 40, 7, 72]])
-# src = torch.tensor([[74,75,76,77,42,43,5,6,7,73]])
-# src = torch.tensor([[22,48,6]])
-
 
 # AscendModel initializes the models and variables for optimization
-OptimModel = CoCoCrab(src, prop0, prop1, prop0_target, prop1_target,
-                            alpha, lr=0.05, dopant_threshold=0.001)
+OptimModel = CoCoCrab(
+    src,
+    prop0,
+    prop1,
+    prop0_target,
+    prop1_target,
+    alpha,
+    lr=0.05,
+    dopant_threshold=0.001,
+)
 
 # The ascend model conducts the gradient ascent and returns a df with results
-optimized_frac_df = OptimModel.optimize_comp(epochs=1000)
+optimized_frac_df = OptimModel.optimize_comp(epochs=200)
 
 # plot the changes in predicted properties across epochs during gradient ascent
 # property_optim_plot(optimized_frac_df, prop0, prop1, save_dir=None)
@@ -69,19 +72,8 @@ optimized_frac_df = OptimModel.optimize_comp(epochs=1000)
 # show both plots on two panel plot, used to produce paper figures
 two_panel_optim(optimized_frac_df, prop0, prop1, save_dir=None)
 
-if prop1 != 'Loss':
+if prop1 != "Loss":
     pareto_plot(optimized_frac_df, prop0, prop1, prop0_target, prop1_target)
 
 # save gradient ascent results to csv file
 # save_results(optimized_frac_df, save_dir=None)
-
-#%%
-model_0 = load_model(prop0)
-#%%
-src = torch.tensor([[22, 45, 6]])
-soft_frac = torch.tensor([[0.5, 0.0, 0.5]])
-
-scaled_p0, scaled_unc, prop0_pred, prop0_unc = model_0.single_predict(src, soft_frac)
-print(f'Predicted Property Value: {prop0_pred}')
-
-# %%
