@@ -205,8 +205,8 @@ def two_panel_optim(optim_frac_df, prop0, prop1, save_dir):
     color = colors[1]
     ax1.set_xlabel("Epoch")
     # ax1.set_ylabel(f"{prop1}", color=color)
-    ax1.set_ylabel(f"Bulk Modulus (GPa)", color=color)
-    # ax1.set_ylabel(f"Loss", color=color)
+    # ax1.set_ylabel(f"Bulk Modulus (GPa)", color=color)
+    ax1.set_ylabel(f"Loss", color=color)
 
     if not prop1 == "Loss":
         ax1.errorbar(
@@ -233,8 +233,8 @@ def two_panel_optim(optim_frac_df, prop0, prop1, save_dir):
 
     ax11 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
     color = colors[0]
-    ax11.set_ylabel(f"{prop0}", color=color)
-    # ax11.set_ylabel(f"Bulk Modulus (GPa)", color=color)
+    # ax11.set_ylabel(f"{prop0}", color=color)
+    ax11.set_ylabel(f"Bulk Modulus (GPa)", color=color)
     ax11.errorbar(
         epochs,
         optim_frac_df[f"{prop0}"],

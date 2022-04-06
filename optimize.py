@@ -58,7 +58,7 @@ OptimModel = CoCoCrab(
     prop1_target,
     alpha,
     lr=0.05,
-    dopant_threshold=0.001,  # set molar fraction threshold for dopant inclusion
+    dopant_threshold=0.000,  # set molar fraction threshold for dopant inclusion
 )
 
 # The ascend model conducts the gradient ascent and returns a df with results

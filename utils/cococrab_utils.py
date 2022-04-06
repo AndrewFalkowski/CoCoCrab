@@ -137,7 +137,7 @@ class CoCoCrab:
                 )
                 loss0 = criterion(
                     scaled_p0,
-                    torch.tensor([[self.prop0_target * 1000.0]]).to(compute_device),
+                    torch.tensor([[self.prop0_target * 100000.0]]).to(compute_device),
                 )
                 loss0.backward()
 
